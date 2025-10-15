@@ -1,0 +1,67 @@
+#map { 
+    height: 100%; 
+    width: 100%; 
+}
+
+.info-card {
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    backdrop-filter: blur(10px);
+    background-color: rgba(255, 255, 255, 0.9);
+    z-index: 1000;
+}
+
+.legend {
+    line-height: 18px;
+    color: #555;
+    background: rgba(255, 255, 255, 0.85);
+    padding: 6px 8px;
+    border-radius: 5px;
+    box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
+}
+
+.legend i {
+    width: 18px;
+    height: 18px;
+    float: left;
+    margin-right: 8px;
+    opacity: 0.7;
+    border-radius: 2px;
+}
+
+.box-plot-container { 
+    width: 100%; 
+    height: 100px;
+}
+
+.box-plot-area {
+    width: 100%; 
+    height: 50%;
+}
+
+#data-table-body tr {
+    cursor: pointer;
+    transition: background-color 0.15s;
+}
+
+#data-table-body tr:hover {
+    background-color: #f3f4f6;
+}
+
+.sorted-asc::after {
+    content: " ▲";
+    font-size: 0.7em;
+}
+
+.sorted-desc::after {
+    content: " ▼";
+    font-size: 0.7em;
+}
+
+#data-table th:nth-child(1),
+#data-table td:nth-child(1) {
+    min-width: 160px;
+    max-width: 200px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
