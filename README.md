@@ -6,7 +6,7 @@ An interactive map that helps you find where you can afford to live in NSW based
 
 ## Features
 
-- **Income Calculator**: Enter your gross annual income and see your net income after Australian taxes
+- **Income Calculator**: Enter your net annual income (after tax). The app estimates your gross income (before tax) using Australian tax rates and uses gross income for the 30% affordability rule.
 - **Housing Type Selection**: Choose between renting or buying to see relevant affordability data
 - **Living Cost Estimates**: Default estimates for utilities, food, transport, and other living costs based on Australian Bureau of Statistics data
 - **Mortgage Calculator**: When buying, configure mortgage settings including interest rates, loan terms, and deposit options
@@ -52,7 +52,7 @@ This project uses publicly available data from Australian government agencies:
 
 ## How to Use
 
-1. **Enter Your Income**: Input your annual gross income to see your net income after tax
+1. **Enter Your Income**: Input your annual net income (after tax) in the text box. The app displays an estimated gross income beneath the field and in popups; gross income is used for affordability calculations.
 2. **Choose Housing Type**: Select whether you want to rent or buy
 3. **Adjust Living Costs**: Modify the default living cost estimates to match your situation
 4. **Configure Mortgage** (if buying): Set interest rates, loan terms, and deposit amounts

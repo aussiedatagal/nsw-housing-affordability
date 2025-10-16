@@ -214,15 +214,15 @@ class HousingAffordabilityMap {
 
 
     _setDefaultValues() {
-        // Set household income default
+        // Set household income default (net input)
         const householdIncome = DEFAULT_VALUES.householdIncome;
-        const adjustedHouseholdIncome = this._adjustForInflation(
+        const adjustedNetIncome = this._adjustForInflation(
             householdIncome.base, 
             householdIncome.baseYear, 
             householdIncome.targetYear, 
             INFLATION_RATES
         );
-        document.getElementById('annualIncome').value = adjustedHouseholdIncome;
+        document.getElementById('annualIncome').value = Math.round(adjustedNetIncome);
 
         // Set cost of living defaults
         Object.entries(DEFAULT_VALUES.costOfLiving).forEach(([field, data]) => {
@@ -254,14 +254,15 @@ class HousingAffordabilityMap {
     _updateDefaultText() {
         // Update household income default text
         const householdIncome = DEFAULT_VALUES.householdIncome;
-        const adjustedHouseholdIncome = this._adjustForInflation(
+        const adjustedNetIncome = this._adjustForInflation(
             householdIncome.base, 
             householdIncome.baseYear, 
             householdIncome.targetYear, 
             INFLATION_RATES
         );
+        const estimatedGross = this._convertNetToGross(adjustedNetIncome);
         const householdIncomeSpan = document.querySelector('#annualIncome').nextElementSibling;
-        householdIncomeSpan.textContent = `Default: $${adjustedHouseholdIncome.toLocaleString()} (${householdIncome.description} ${householdIncome.baseYear}-${householdIncome.baseYear + 1}, adjusted for inflation)`;
+        householdIncomeSpan.textContent = `Default net: $${Math.round(adjustedNetIncome).toLocaleString()} (ABS equivalised disposable income ${householdIncome.baseYear}-${householdIncome.baseYear + 1}, inflation-adjusted). Estimated gross: $${Math.round(estimatedGross).toLocaleString()}.`;
 
         // Update cost of living default text
         Object.entries(DEFAULT_VALUES.costOfLiving).forEach(([field, data]) => {
@@ -277,10 +278,31 @@ class HousingAffordabilityMap {
     }
 
     _updateNetIncome() {
-        const householdIncome = parseFloat(document.getElementById('annualIncome').value) || 0;
-        const weeklyIncome = householdIncome / 52;
+        const householdNetIncome = parseFloat(document.getElementById('annualIncome').value) || 0;
+        const weeklyNetIncome = householdNetIncome / 52;
+        const householdGrossIncome = this._convertNetToGross(householdNetIncome);
+        const weeklyGrossIncome = householdGrossIncome / 52;
+        const maxWeeklyHousing = weeklyGrossIncome * 0.30;
         
-        document.getElementById('netIncome').textContent = `$${weeklyIncome.toLocaleString()}`;
+        // Update all income breakdown fields
+        document.getElementById('netIncome').textContent = `$${Math.round(weeklyNetIncome).toLocaleString()}`;
+        document.getElementById('annualGrossIncome').textContent = `$${Math.round(householdGrossIncome).toLocaleString()}`;
+        document.getElementById('weeklyGrossIncome').textContent = `$${Math.round(weeklyGrossIncome).toLocaleString()}`;
+        document.getElementById('maxHousingExpense').textContent = `$${Math.round(maxWeeklyHousing).toLocaleString()}`;
+        
+        // Update the helper text with the default information
+        const helperSpan = document.querySelector('#annualIncome').nextElementSibling;
+        if (helperSpan) {
+            const householdIncome = DEFAULT_VALUES.householdIncome;
+            const adjustedNetIncome = this._adjustForInflation(
+                householdIncome.base, 
+                householdIncome.baseYear, 
+                householdIncome.targetYear, 
+                INFLATION_RATES
+            );
+            helperSpan.textContent = `Default net: $${Math.round(adjustedNetIncome).toLocaleString()} (ABS equivalised disposable income ${householdIncome.baseYear}-${householdIncome.baseYear + 1}, inflation-adjusted).`;
+        }
+        
         this.updateMapAndTable();
     }
 
@@ -305,57 +327,59 @@ class HousingAffordabilityMap {
         return { payment: principalAndInterestPayment, interest: monthlyInterest };
     }
 
-    // Convert net income to gross income using proper Australian tax brackets
+    // Convert net income to gross income using Australian tax brackets
     _convertNetToGross(netIncome) {
-        if (netIncome <= 0) return 0;
-        
-        // Australian tax brackets for 2024-25 (resident rates)
-        // Each bracket: { min, max, rate, cumulativeTax }
-        const taxBrackets = [
-            { min: 0, max: 18200, rate: 0.00, cumulativeTax: 0 },
-            { min: 18201, max: 45000, rate: 0.16, cumulativeTax: 0 },
-            { min: 45001, max: 135000, rate: 0.30, cumulativeTax: 4288 }, // 16% of (45000-18200)
-            { min: 135001, max: 190000, rate: 0.37, cumulativeTax: 31288 }, // 4288 + 30% of (135000-45000)
-            { min: 190001, max: Infinity, rate: 0.45, cumulativeTax: 51638 } // 31288 + 37% of (190000-135000)
+        if (!Number.isFinite(netIncome)) throw new TypeError("netIncome must be a finite number");
+        if (netIncome < 0) return 0; // clamp negatives to zero gross
+    
+        // 2024–25 tax brackets: 0%, 16%, 30%, 37%, 45%
+        const BRACKETS = [
+            { lower: 0,      upper: 18_200,  r: 0.00, Cprev:     0 },
+            { lower: 18_200, upper: 45_000,  r: 0.16, Cprev:     0 },
+            { lower: 45_000, upper: 135_000, r: 0.30, Cprev:  4_288 },
+            { lower: 135_000,upper: 190_000, r: 0.37, Cprev: 31_288 },
+            { lower: 190_000,upper: Infinity,r: 0.45, Cprev: 51_638 }
         ];
+    
+        if (netIncome <= BRACKETS[0].upper) return netIncome;
+        for (let i = 1; i < BRACKETS.length; i++) {
+            const { lower, upper, r, Cprev } = BRACKETS[i];
+            const denom = 1 - r;
+            if (denom <= 0) continue;
         
-        const medicareLevyRate = 0.02; // 2% Medicare levy
+            const candidateGross = (netIncome + Cprev - r * lower) / denom;
         
-        // Find which tax bracket the gross income falls into
-        for (let i = 0; i < taxBrackets.length; i++) {
-            const bracket = taxBrackets[i];
-            
-            // Calculate the net income if gross income is at the minimum of this bracket
-            const grossAtMin = bracket.min;
-            const taxAtMin = bracket.cumulativeTax + (grossAtMin - bracket.min) * bracket.rate;
-            const medicareAtMin = grossAtMin * medicareLevyRate;
-            const netAtMin = grossAtMin - taxAtMin - medicareAtMin;
-            
-            // Calculate the net income if gross income is at the maximum of this bracket
-            const grossAtMax = bracket.max === Infinity ? Infinity : bracket.max;
-            const taxAtMax = bracket.cumulativeTax + (grossAtMax - bracket.min) * bracket.rate;
-            const medicareAtMax = grossAtMax * medicareLevyRate;
-            const netAtMax = grossAtMax - taxAtMax - medicareAtMax;
-            
-            // Check if our target net income falls within this bracket
-            if (netIncome >= netAtMin && (bracket.max === Infinity || netIncome <= netAtMax)) {
-                // Rearrange the equation: Net = Gross - Tax - Medicare
-                // Net = Gross - (cumulativeTax + (Gross - bracket.min) * bracket.rate) - Gross * medicareLevyRate
-                // Net = Gross - cumulativeTax - (Gross - bracket.min) * bracket.rate - Gross * medicareLevyRate
-                // Net = Gross - cumulativeTax - Gross * bracket.rate + bracket.min * bracket.rate - Gross * medicareLevyRate
-                // Net = Gross * (1 - bracket.rate - medicareLevyRate) - cumulativeTax + bracket.min * bracket.rate
-                // Gross * (1 - bracket.rate - medicareLevyRate) = Net + cumulativeTax - bracket.min * bracket.rate
-                // Gross = (Net + cumulativeTax - bracket.min * bracket.rate) / (1 - bracket.rate - medicareLevyRate)
-                
-                const denominator = 1 - bracket.rate - medicareLevyRate;
-                const grossIncome = (netIncome + bracket.cumulativeTax - bracket.min * bracket.rate) / denominator;
-                
-                return Math.round(grossIncome);
+            const inRange =
+                candidateGross >= lower &&
+                (i === BRACKETS.length - 1 ? candidateGross >= lower : candidateGross < upper);
+        
+            if (inRange) return candidateGross;
+        }
+    
+        const { lower, r, Cprev } = BRACKETS[BRACKETS.length - 1];
+        return (netIncome + Cprev - r * lower) / (1 - r);
+    }
+
+    // Convert gross income to net income using Australian tax brackets
+    _calculateNetIncome(grossIncome) {
+        if (!Number.isFinite(grossIncome)) throw new TypeError("grossIncome must be a finite number");
+        if (grossIncome < 0) return 0;
+        const BRACKETS = [
+            { lower: 0,      upper: 18_200,  r: 0.00 },
+            { lower: 18_200, upper: 45_000,  r: 0.16 },
+            { lower: 45_000, upper: 135_000, r: 0.30 },
+            { lower: 135_000,upper: 190_000, r: 0.37 },
+            { lower: 190_000,upper: Infinity,r: 0.45 }
+        ];
+        let tax = 0;
+        for (let i = 0; i < BRACKETS.length; i++) {
+            const { lower, upper, r } = BRACKETS[i];
+            if (grossIncome > lower) {
+                const taxable = Math.min(grossIncome, upper) - lower;
+                tax += taxable * r;
             }
         }
-        
-        // Fallback (shouldn't reach here)
-        return netIncome;
+        return grossIncome - tax;
     }
 
     _getUserSettings() {
@@ -371,7 +395,6 @@ class HousingAffordabilityMap {
 
         const weeklyLivingCosts = utilities + food + transport + other;
 
-        // Always calculate owner costs for popup display (regardless of housing type)
             const strata = parseFloat(document.getElementById('strata').value) || 0;
             const council = parseFloat(document.getElementById('council').value) || 0;
             const water = parseFloat(document.getElementById('water').value) || 0;
@@ -390,13 +413,12 @@ class HousingAffordabilityMap {
 
     _updateAllAffordability() {
         const userSettings = this._getUserSettings();
-        const { weeklyGrossIncome } = userSettings; // Use gross income for 30% rule calculation
+        const { weeklyGrossIncome } = userSettings;
         const pricePoint = document.getElementById('pricePoint').value;
 
         for (const postcode in this.housingData) {
             const data = this.housingData[postcode];
             
-            // Get the appropriate price point
             let salesPrice, rent;
             if (pricePoint === 'q1') {
                 salesPrice = (data.yearly_first_quartile_sales_000s || 0) * 1000;
@@ -414,7 +436,6 @@ class HousingAffordabilityMap {
 
             if (this.housingType === 'rent' && rent && rent > 0) {
                 weeklyHousingCost = rent;
-                // Calculate affordability as percentage of gross income (30% rule)
                 affordabilityPercentage = (weeklyHousingCost / weeklyGrossIncome) * 100;
             } else if (this.housingType === 'buy' && salesPrice && salesPrice > 0) {
                 const depositPercent = parseFloat(document.getElementById('depositPercent').value) || 20;
@@ -431,7 +452,6 @@ class HousingAffordabilityMap {
 
                 const weeklyMortgagePayment = mortgage.payment * 12 / 52;
                 weeklyHousingCost = weeklyMortgagePayment + userSettings.weeklyOwnerCosts;
-                // Calculate affordability as percentage of gross income (30% rule)
                 affordabilityPercentage = (weeklyHousingCost / weeklyGrossIncome) * 100;
 
                 data.calculated_weekly_payment = weeklyMortgagePayment;
@@ -440,26 +460,20 @@ class HousingAffordabilityMap {
 
             data.weekly_housing_cost = weeklyHousingCost;
             data.affordability_percentage = affordabilityPercentage;
-            data.is_affordable = affordabilityPercentage <= 30; // Updated to 30% rule
-            // Track weekly money left over for color logic (net after living costs minus housing cost)
+            data.is_affordable = affordabilityPercentage <= 30;
             const weeklyAfterExpenses = userSettings.weeklyNetIncome - userSettings.weeklyLivingCosts;
             data.weekly_money_leftover = (weeklyHousingCost > 0)
                 ? (weeklyAfterExpenses - weeklyHousingCost)
                 : null;
 
-            // Calculate quartile payments for box plots
             this._calculateQuartilePayments(data, userSettings);
         }
     }
 
     _calculateQuartilePayments(data, userSettings) {
-        // Always calculate both rent and buy quartile payments for popup display
-        
-        // Rent quartile payments (always available)
         data.yearly_first_quartile_weekly_rent_payment = data.yearly_first_quartile_weekly_rent;
         data.yearly_third_quartile_weekly_rent_payment = data.yearly_third_quartile_weekly_rent;
         
-        // Buy quartile payments (calculate if sales data exists)
         const q1Sales = (data.yearly_first_quartile_sales_000s || 0) * 1000;
         const q3Sales = (data.yearly_third_quartile_sales_000s || 0) * 1000;
 
@@ -511,7 +525,6 @@ class HousingAffordabilityMap {
     updateMapAndTable() {
         this._updateAllAffordability();
 
-        // Always re-render the map to ensure it has the latest data
             this._renderMap();
 
         if (this.openPostcode) {
@@ -520,7 +533,6 @@ class HousingAffordabilityMap {
     }
 
     _getColor(percentage, weeklyMoneyLeftover) {
-        // If leftover is negative, show black regardless of percentage
         if (weeklyMoneyLeftover != null && weeklyMoneyLeftover < 0) return '#000000';
         if (percentage === null || isNaN(percentage) || percentage === 0) return '#ccc';
         if (percentage <= 20) return '#16a34a'; // Dark green - well below 30% rule (very affordable)
@@ -629,6 +641,7 @@ class HousingAffordabilityMap {
         setContent('#popup-postcode', `Postcode: ${postcode}`);
 
         const formatCurrency = (val) => (val != null) ? formatter.format(val) : 'N/A';
+        const formatWeeklyCurrency = (val) => (val != null) ? formatter.format(Math.round(val)) : 'N/A';
 
         // Income breakdown
         const userSettings = this._getUserSettings();
@@ -637,8 +650,8 @@ class HousingAffordabilityMap {
         const weeklyAfterExpenses = weeklyNetIncome - userSettings.weeklyLivingCosts;
 
         // Populate income breakdown
-        setContent('#net-income-weekly', formatCurrency(weeklyNetIncome));
-        setContent('#gross-income-weekly', formatCurrency(weeklyGrossIncome));
+        setContent('#net-income-weekly', formatWeeklyCurrency(weeklyNetIncome));
+        setContent('#gross-income-weekly', formatWeeklyCurrency(weeklyGrossIncome));
         setContent('#after-expenses-weekly', formatCurrency(weeklyAfterExpenses));
 
         // Rent option - get the appropriate price point
@@ -654,7 +667,7 @@ class HousingAffordabilityMap {
         
         if (rentCost != null && rentCost > 0) {
         const moneyAfterRent = weeklyAfterExpenses - rentCost;
-        setContent('#rent-cost-weekly', formatCurrency(rentCost));
+        setContent('#rent-cost-weekly', formatWeeklyCurrency(rentCost));
             const moneyAfterRentElement = template.querySelector('#money-after-rent');
             // Color negative values black (strip any prior Tailwind text- classes and force black)
             console.log('Money after rent:', moneyAfterRent, 'Is negative:', moneyAfterRent < 0);

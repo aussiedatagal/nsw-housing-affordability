@@ -58,11 +58,25 @@
                                 <label for="annualIncome" class="text-xs font-medium text-gray-700">Annual Household Income (after tax) ($)</label>
                                 <input type="number" id="annualIncome" value="0" step="1000"
                                     class="p-2 border border-gray-300 rounded-lg text-sm focus:ring-blue-500 focus:border-blue-500">
-                                <span class="text-xs text-gray-500">Default: $61,984 (ABS median equivalised disposable household income 2022-23, adjusted for inflation). Note: The 30% rule is calculated using gross income, so your net income will be converted to gross income for affordability calculations.</span>
+                                <span class="text-xs text-gray-500">Enter your net income. We estimate your gross income below (used for the 30% affordability rule).</span>
                             </div>
-                            <div class="flex justify-between items-center text-xs">
-                                <span class="text-gray-600">Weekly Net Income:</span>
-                                <span id="netIncome" class="font-semibold text-green-600">$0</span>
+                            <div class="space-y-1 text-xs">
+                                <div class="flex justify-between items-center">
+                                    <span class="text-gray-600">Annual Gross Income:</span>
+                                    <span id="annualGrossIncome" class="font-semibold text-blue-600">$0</span>
+                                </div>
+                                <div class="flex justify-between items-center">
+                                    <span class="text-gray-600">Weekly Gross Income:</span>
+                                    <span id="weeklyGrossIncome" class="font-semibold text-blue-600">$0</span>
+                                </div>
+                                <div class="flex justify-between items-center">
+                                    <span class="text-gray-600">Max Weekly Housing (30% rule):</span>
+                                    <span id="maxHousingExpense" class="font-semibold text-orange-600">$0</span>
+                                </div>
+                                <div class="flex justify-between items-center">
+                                    <span class="text-gray-600">Weekly Net Income:</span>
+                                    <span id="netIncome" class="font-semibold text-green-600">$0</span>
+                                </div>
                             </div>
                         </div>
                     </div>
