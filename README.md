@@ -1,6 +1,6 @@
 # NSW Housing Affordability Map
 
-An interactive map that helps you find where you can afford to live in NSW based on your income and expenses. The map uses the widely-accepted 30% housing cost rule to determine affordability - green areas are affordable (≤30% of income), while red areas exceed recommended housing costs.
+An interactive map that helps you find where you can afford to live in NSW based on your income and expenses. The map uses the widely-accepted [30% housing cost rule](https://www.abs.gov.au/statistics/detailed-methodology-information/concepts-sources-methods/survey-income-and-housing-user-guide-australia/2019-20/housing#housing-affordability) to determine affordability - green areas are affordable (≤30% of income), while red areas exceed recommended housing costs.
 
 ![Screenshot](screenshot.png)
 
@@ -17,7 +17,7 @@ An interactive map that helps you find where you can afford to live in NSW based
 
 ## The 30% Rule
 
-The map uses the widely-accepted housing affordability guideline that housing costs should not exceed 30% of gross income. This standard is used by housing authorities worldwide to determine if housing is affordable:
+The map uses the widely-accepted housing affordability guideline that housing costs should not exceed 30% of gross income. This standard is used by housing authorities worldwide to determine if housing is affordable. The 30% rule is based on the [Australian Bureau of Statistics Survey of Income and Housing methodology](https://www.abs.gov.au/statistics/detailed-methodology-information/concepts-sources-methods/survey-income-and-housing-user-guide-australia/2019-20/housing#housing-affordability), which defines households spending more than 30% of their income on housing costs as being in 'housing stress':
 
 - **Green (≤30%)**: Affordable - housing costs are within recommended limits
 - **Yellow (31-40%)**: Moderate - housing costs are higher than recommended but manageable
@@ -52,7 +52,7 @@ This project uses publicly available data from Australian government agencies:
 
 ## How to Use
 
-1. **Enter Your Income**: Input your annual net income (after tax) in the text box. The app displays an estimated gross income beneath the field and in popups; gross income is used for affordability calculations.
+1. **Enter Your Income**: Input your household's annual net income (after tax) in the text box. The app displays an estimated gross income beneath the field and in popups; gross income is used for affordability calculations.
 2. **Choose Housing Type**: Select whether you want to rent or buy
 3. **Adjust Living Costs**: Modify the default living cost estimates to match your situation
 4. **Configure Mortgage** (if buying): Set interest rates, loan terms, and deposit amounts
